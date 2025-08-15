@@ -16,27 +16,31 @@ This repository contains configurations and tools for evaluating HTTP/3 compatib
 ```
 ├── servers/
 │   ├── angie/              # Angie web server configurations
-│   └── quic/               # Custom QUIC server setup
+│   ├── quic/               # Custom QUIC server setup
+│   └── python/             # Python-based server implementations
 ├── load-balancers/
 │   ├── metal-lb/           # MetalLB configurations
 │   ├── haproxy/            # HAProxy configurations
 │   └── envoy/              # Envoy proxy configurations
 ├── ingress/
 │   ├── emissary/           # Emissary Ingress configurations
-│   └── gateway-api/        # Kubernetes Gateway API configs
+│   └── gateway-api.yaml    # Kubernetes Gateway API configs
 ├── certificates/
 │   ├── public-cert/        # Public certificates
 │   ├── final-cert/         # Final certificates for production
-│   └── certs/              # Development certificates
+│   ├── certs/              # Development certificates
+│   └── *.crt, *.key        # Additional certificate files
 ├── tests/
 │   ├── clients/            # HTTP/3 client implementations
-│   ├── scripts/            # Test automation scripts
-│   └── pcap/               # Network capture files
+│   ├── pcap/               # Network capture files and analysis
+│   ├── pods/               # Test pod configurations
+│   └── web/                # Web-based test files and demos
 ├── tools/
+│   ├── cleanup/            # Cleanup scripts for services
 │   ├── nghttp3/            # nghttp3 library
 │   ├── ngtcp2/             # ngtcp2 library
 │   └── openssl/            # OpenSSL with QUIC support
-└── docs/                   # Documentation and evaluation results
+└── setup.sh               # Quick deployment script
 ```
 
 ## Quick Start
@@ -51,6 +55,10 @@ This repository contains configurations and tools for evaluating HTTP/3 compatib
 ### Deploy HTTP/3 Servers
 
 ```bash
+# Quick setup with automated script
+./setup.sh
+
+# Or deploy manually:
 # Deploy Angie HTTP/3 server
 kubectl apply -f servers/angie/
 
@@ -95,6 +103,7 @@ python tests/clients/k8s-angie-http3-client.py
 ### Web Servers
 - **Angie**: Enterprise-grade web server with HTTP/3 support
 - **Custom QUIC Server**: aioquic-based implementation
+- **Python Server**: Development server for testing (servers/python/)
 
 ### Load Balancers
 - **MetalLB**: Bare metal load balancer
