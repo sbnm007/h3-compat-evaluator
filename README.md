@@ -15,32 +15,32 @@ This repository contains configurations and tools for evaluating HTTP/3 compatib
 
 ```
 ├── servers/
-│   ├── angie/              # Angie web server configurations
-│   ├── quic/               # Custom QUIC server setup
-│   └── python/             # Python-based server implementations
+│   ├── angie/              # Angie web server (angie.yaml)
+│   ├── quic/               # Custom QUIC server (quic.yaml) 
+│   └── python/             # Python server implementation (server.py)
 ├── load-balancers/
-│   ├── metal-lb/           # MetalLB configurations
-│   ├── haproxy/            # HAProxy configurations
-│   └── envoy/              # Envoy proxy configurations
+│   ├── metal-lb/           # MetalLB configs (metal-lb.yaml, metal-crd.yaml)
+│   ├── haproxy/            # HAProxy configuration (ha-proxy.yaml)
+│   └── envoy/              # Envoy proxy config (envoy-proxy-lb.yaml)
 ├── ingress/
-│   ├── emissary/           # Emissary Ingress configurations
-│   └── gateway-api.yaml    # Kubernetes Gateway API configs
+│   ├── emissary/           # Emissary Ingress (emissary.yaml)
+│   └── gateway-api.yaml    # Kubernetes Gateway API configuration
 ├── certificates/
-│   ├── public-cert/        # Public certificates
-│   ├── final-cert/         # Final certificates for production
-│   ├── certs/              # Development certificates
-│   └── *.crt, *.key        # Additional certificate files
+│   ├── public-cert/        # Public certificates (tls.crt, tls.key)
+│   ├── final-cert/         # Production certificates (new-quic.crt, new-quic.key)
+│   ├── certs/              # Development certificates (quic.crt, quic.key)
+│   └── *.crt, *.key        # Additional certificate files and configs
 ├── tests/
-│   ├── clients/            # HTTP/3 client implementations
-│   ├── pcap/               # Network capture files and analysis
-│   ├── pods/               # Test pod configurations
-│   └── web/                # Web-based test files and demos
+│   ├── clients/            # HTTP/3 test client (k8s-angie-http3-client.py)
+│   ├── pcap/               # Network captures (*.pcap files, analysis dumps)
+│   ├── pods/               # Test pods (curl-pod.yaml)
+│   └── web/                # Web test files (index.html, webtransport-test.html)
 ├── tools/
-│   ├── cleanup/            # Cleanup scripts for services
-│   ├── nghttp3/            # nghttp3 library
-│   ├── ngtcp2/             # ngtcp2 library
-│   └── openssl/            # OpenSSL with QUIC support
-└── setup.sh               # Quick deployment script
+│   ├── cleanup/            # Service cleanup scripts (clean-emissary)
+│   ├── nghttp3/            # HTTP/3 library source code
+│   ├── ngtcp2/             # QUIC library source code
+│   └── openssl/            # OpenSSL with QUIC support source
+└── setup.sh               # Automated deployment script
 ```
 
 ## Quick Start
@@ -113,18 +113,3 @@ python tests/clients/k8s-angie-http3-client.py
 ### Ingress Controllers
 - **Emissary Ingress**: Ambassador-based ingress
 - **Gateway API**: Next-generation ingress specification
-
-## Results and Findings
-
-[Documentation of compatibility testing results, performance benchmarks, and recommendations]
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Add your HTTP/3 implementation or test case
-4. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details
