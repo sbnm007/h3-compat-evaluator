@@ -1,0 +1,1087 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>WebTransport Echo Demo with Camera & Audio (Multiplexed)</title>
+        <style>
+            /* Main styling for better readability and user experience */
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 900px;
+                margin: 0 auto;
+                padding: 20px;
+                line-height: 1.6;
+            }
+
+            /* Header styling */
+            h1 {
+                color: #2c3e50;
+                border-bottom: 2px solid #3498db;
+                padding-bottom: 10px;
+            }
+
+            /* Container for the controls and status */
+            .control-panel {
+                background-color: #f8f9fa;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+                border: 1px solid #dee2e6;
+            }
+
+            /* Status indicator styling */
+            .status {
+                font-weight: bold;
+                margin: 10px 0;
+                padding: 8px;
+                border-radius: 4px;
+                background-color: #f0f0f0;
+            }
+            .status.connected {
+                color: #155724;
+                background-color: #d4edda;
+            }
+            .status.disconnected {
+                color: #721c24;
+                background-color: #f8d7da;
+            }
+            .status.connecting {
+                color: #0c5460;
+                background-color: #d1ecf1;
+            }
+
+            /* Button styling */
+            button {
+                padding: 8px 16px;
+                margin: 5px;
+                border-radius: 4px;
+                border: 1px solid #ccc;
+                background-color: #f0f0f0;
+                cursor: pointer;
+                transition:
+                    background-color 0.3s,
+                    transform 0.1s;
+            }
+            button:hover {
+                background-color: #e0e0e0;
+            }
+            button:active {
+                transform: translateY(1px);
+            }
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            /* Button group container */
+            .button-group {
+                margin-bottom: 20px;
+            }
+
+            /* Connect button */
+            #connectButton {
+                background-color: #28a745;
+                color: white;
+                border-color: #28a745;
+            }
+            #connectButton:hover {
+                background-color: #218838;
+            }
+
+            /* Send data button */
+            #sendDataButton {
+                background-color: #007bff;
+                color: white;
+                border-color: #007bff;
+            }
+            #sendDataButton:hover {
+                background-color: #0069d9;
+            }
+
+            /* Camera button */
+            #cameraButton {
+                background-color: #9c27b0;
+                color: white;
+                border-color: #9c27b0;
+            }
+            #cameraButton:hover {
+                background-color: #7b1fa2;
+            }
+
+            /* Audio button */
+            #toggleAudioButton {
+                background-color: #00bcd4; /* Cyan color for audio */
+                color: white;
+                border-color: #00bcd4;
+            }
+            #toggleAudioButton.recording {
+                background-color: #dc3545; /* Red when recording */
+                border-color: #dc3545;
+            }
+            #toggleAudioButton.recording:hover {
+                background-color: #c82333;
+            }
+            #toggleAudioButton:hover {
+                background-color: #0097a7;
+            }
+
+            /* Close button */
+            #closeButton {
+                background-color: #dc3545;
+                color: white;
+                border-color: #dc3545;
+            }
+            #closeButton:hover {
+                background-color: #c82333;
+            }
+
+            /* Send Multiplexed Data button (Streams + Datagrams) */
+            #sendMultiplexedDataButton {
+                background-color: #ffc107; /* Orange/Yellow color for mixed */
+                color: #343a40; /* Dark text for contrast */
+                border-color: #ffc107;
+            }
+            #sendMultiplexedDataButton:hover {
+                background-color: #e0a800;
+            }
+
+            /* Input field styling */
+            .input-group {
+                margin: 15px 0;
+            }
+            .input-group label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+            }
+            .input-group input {
+                padding: 8px;
+                width: 100%;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                box-sizing: border-box;
+            }
+
+            /* Video container */
+            .video-container {
+                margin-top: 20px;
+                padding: 15px;
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                border: 1px solid #dee2e6;
+            }
+
+            /* Video element */
+            #cameraFeed {
+                width: 100%;
+                max-width: 640px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                display: none; /* Hidden by default */
+            }
+
+            /* Canvas for frame capture */
+            #frameCanvas {
+                display: none;
+            }
+
+            /* Camera settings */
+            .camera-settings {
+                margin-top: 10px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                align-items: center;
+            }
+
+            /* Image preview */
+            #capturedFrame {
+                max-width: 320px;
+                max-height: 240px;
+                border: 1px solid #ddd;
+                margin-top: 10px;
+                display: none;
+            }
+
+            /* Frame transmission settings */
+            .frame-settings {
+                margin-top: 10px;
+            }
+
+            /* Frame quality slider */
+            .frame-quality {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-top: 5px;
+            }
+
+            /* Console output styling */
+            #consoleOutput {
+                background-color: #f5f5f5;
+                padding: 15px;
+                border-radius: 4px;
+                overflow-x: auto;
+                min-height: 200px;
+                border: 1px solid #ddd;
+                font-family: monospace;
+                white-space: pre-wrap;
+                font-size: 14px;
+            }
+
+            /* Information section */
+            .info-section {
+                background-color: #e9f7fe;
+                border-left: 4px solid #3498db;
+                padding: 10px 15px;
+                margin: 20px 0;
+                border-radius: 0 4px 4px 0;
+            }
+
+            /* Warning for Datagrams */
+            .warning-message {
+                background-color: #fff3cd;
+                border: 1px solid #ffeeba;
+                color: #856404;
+                padding: 10px;
+                border-radius: 4px;
+                margin-top: 15px;
+                font-size: 0.9em;
+            }
+
+            /* Tabs for console/received images */
+            .tabs {
+                display: flex;
+                gap: 0;
+                margin-top: 20px;
+            }
+
+            .tab {
+                padding: 10px 15px;
+                border: 1px solid #ddd;
+                border-bottom: none;
+                border-radius: 4px 4px 0 0;
+                cursor: pointer;
+                background-color: #f0f0f0;
+            }
+
+            .tab.active {
+                background-color: #fff;
+                font-weight: bold;
+            }
+
+            .tab-content {
+                display: none;
+                padding: 15px;
+                border: 1px solid #ddd;
+                border-radius: 0 4px 4px 4px;
+            }
+
+            .tab-content.active {
+                display: block;
+            }
+            #receivedImages img {
+                max-width: 100%;
+                height: auto;
+                margin-bottom: 10px;
+                border: 1px solid #eee;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>WebTransport Echo Demo with Camera & Audio</h1>
+
+        <div class="info-section">
+            <p>
+                This demo connects to a WebTransport echo service (configured to
+                <code>https://quic-aioquic.com/wt</code>) and allows you to send
+                data that will be echoed back.
+            </p>
+            <p>
+                It now demonstrates sending **images and audio via the Datagrams
+                API**.
+            </p>
+            <p>
+                Make sure the WebTransport server is running before connecting.
+            </p>
+        </div>
+
+        <div class="warning-message">
+            <strong>Important Note on Datagrams:</strong> Datagrams are
+            **unreliable** and **unordered**. This means packets might be lost,
+            duplicated, or arrive in a different order. They are generally not
+            suitable for critical data like entire images or high-fidelity audio
+            files where reliability is paramount. For such data, WebTransport
+            Streams (reliable and ordered) are usually preferred. This demo uses
+            datagrams for images/audio for illustrative purposes only.
+        </div>
+
+        <div class="control-panel">
+            <div id="connectionStatus" class="status disconnected">
+                Status: Disconnected
+            </div>
+
+            <div class="button-group">
+                <button
+                    id="connectButton"
+                    title="Establish a WebTransport connection to the server"
+                >
+                    Connect
+                </button>
+                <button
+                    id="sendDataButton"
+                    disabled
+                    title="Send text data through the established connection (Streams API)"
+                >
+                    Send Text (Streams)
+                </button>
+                <button
+                    id="sendMultiplexedDataButton"
+                    disabled
+                    title="Send text data over multiple parallel streams AND datagrams concurrently"
+                >
+                    Send Multiplexed Data
+                </button>
+                <button id="cameraButton" disabled title="Open/close camera">
+                    Open Camera
+                </button>
+                <button
+                    id="toggleAudioButton"
+                    disabled
+                    title="Start/Stop recording and sending audio (Datagrams API)"
+                >
+                    Start Recording Audio (Datagrams)
+                </button>
+                <button
+                    id="closeButton"
+                    disabled
+                    title="Close the current connection"
+                >
+                    Close Connection
+                </button>
+                <button id="clearButton" title="Clear the console output">
+                    Clear Console
+                </button>
+            </div>
+
+            <div class="input-group">
+                <label for="dataInput">Text data to send:</label>
+                <input
+                    type="text"
+                    id="dataInput"
+                    value="Hello WebTransport!"
+                    placeholder="Enter data to send (will be converted to bytes)"
+                />
+                <small>Default is "Hello WebTransport!"</small>
+            </div>
+        </div>
+
+        <div class="video-container" id="videoContainer" style="display: none">
+            <h3>Camera Feed</h3>
+            <video id="cameraFeed" autoplay playsinline></video>
+            <canvas id="frameCanvas"></canvas>
+
+            <div class="camera-settings">
+                <select id="cameraResolution">
+                    <option value="640x480">640x480</option>
+                    <option value="1280x720">1280x720 (HD)</option>
+                    <option value="1920x1080">1920x1080 (Full HD)</option>
+                </select>
+
+                <div class="frame-settings">
+                    <div class="frame-quality">
+                        <label for="jpegQuality"
+                            >JPEG Quality (for send):</label
+                        >
+                        <input
+                            type="range"
+                            id="jpegQuality"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value="0.7"
+                        />
+                        <span id="qualityValue">0.7</span>
+                    </div>
+                </div>
+            </div>
+
+            <h4>Preview of captured frame:</h4>
+            <img id="capturedFrame" alt="Captured frame preview" />
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="console">Console Output</div>
+        </div>
+
+        <div class="tab-content active" id="consoleTab">
+            <pre id="consoleOutput">
+WebTransport Demo initialized. Click "Connect" to start.</pre
+            >
+        </div>
+
+        <script>
+            // Global variables to store connection objects
+            let transport = null;
+            let videoStream = null;
+            let cameraActive = false;
+
+            // Audio recording variables
+            let mediaRecorder = null;
+            let audioChunks = [];
+            let isRecordingAudio = false;
+
+            // Interval ID for datagrams sent with multiplexed button
+            let datagramIntervalId = null;
+
+            // DOM Elements
+            const connectButton = document.getElementById("connectButton");
+            const sendDataButton = document.getElementById("sendDataButton");
+            const cameraButton = document.getElementById("cameraButton");
+            // const sendFrameDatagramButton = document.getElementById("sendFrameDatagramButton"); // Removed this button
+            const toggleAudioButton =
+                document.getElementById("toggleAudioButton"); // New Audio Button
+            const closeButton = document.getElementById("closeButton");
+            const clearButton = document.getElementById("clearButton");
+            const sendMultiplexedDataButton = document.getElementById(
+                "sendMultiplexedDataButton",
+            ); // Renamed ID
+            const dataInput = document.getElementById("dataInput");
+            const consoleOutput = document.getElementById("consoleOutput");
+            const connectionStatus =
+                document.getElementById("connectionStatus");
+            const videoContainer = document.getElementById("videoContainer");
+            const cameraFeed = document.getElementById("cameraFeed");
+            const frameCanvas = document.getElementById("frameCanvas");
+            const capturedFrame = document.getElementById("capturedFrame");
+            const jpegQuality = document.getElementById("jpegQuality");
+            const qualityValue = document.getElementById("qualityValue");
+            const cameraResolution =
+                document.getElementById("cameraResolution");
+            const receivedImages = document.getElementById("receivedImages");
+
+            // Set up tab functionality
+            const tabs = document.querySelectorAll(".tab");
+            tabs.forEach((tab) => {
+                tab.addEventListener("click", () => {
+                    // Remove active class from all tabs and content
+                    document
+                        .querySelectorAll(".tab, .tab-content")
+                        .forEach((el) => {
+                            el.classList.remove("active");
+                        });
+
+                    // Add active class to clicked tab and its content
+                    tab.classList.add("active");
+                    const tabId = tab.getAttribute("data-tab") + "Tab";
+                    document.getElementById(tabId).classList.add("active");
+                });
+            });
+
+            // Update quality value display
+            jpegQuality.addEventListener("input", () => {
+                qualityValue.textContent = jpegQuality.value;
+            });
+
+            // Helper function to log messages to the console output
+            function logToConsole(message, isError = false) {
+                const timestamp = new Date().toLocaleTimeString();
+                const formattedMessage = `[${timestamp}] ${message}`;
+
+                consoleOutput.textContent += formattedMessage + "\n";
+
+                // Also log to browser console
+                if (isError) {
+                    console.error(message);
+                } else {
+                    console.log(message);
+                }
+
+                // Auto-scroll to bottom
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+
+            // Update the UI status indicator
+            function updateStatus(status) {
+                connectionStatus.textContent = `Status: ${status}`;
+                connectionStatus.className = `status ${status.toLowerCase()}`;
+            }
+
+            // Reset UI and connection state
+            function resetConnectionState() {
+                transport = null;
+                updateStatus("Disconnected");
+                connectButton.disabled = false;
+                sendDataButton.disabled = true;
+                sendMultiplexedDataButton.disabled = true; // Disable the new button
+                cameraButton.disabled = true;
+                // sendFrameDatagramButton.disabled = true; // No longer needed
+                toggleAudioButton.disabled = true;
+                toggleAudioButton.classList.remove("recording");
+                toggleAudioButton.textContent =
+                    "Start Recording Audio (Datagrams)";
+                closeButton.disabled = true;
+
+                // Stop camera if active
+                if (cameraActive) {
+                    toggleCamera(); // This function will turn off the camera
+                }
+                // Stop audio if recording
+                if (isRecordingAudio && mediaRecorder) {
+                    mediaRecorder.stop();
+                    isRecordingAudio = false;
+                }
+                // Clear any active datagram intervals
+                if (datagramIntervalId) {
+                    clearInterval(datagramIntervalId);
+                    datagramIntervalId = null;
+                }
+            }
+
+            // --- WebTransport Connection Logic ---
+
+            async function connect() {
+                try {
+                    // Use quic-aioquic.com/wt as per documentation
+                    transport = new WebTransport("https://quic-aioquic.com/wt");
+
+                    logToConsole(
+                        "Connecting to WebTransport server at quic-aioquic.com/wt...",
+                    );
+                    updateStatus("Connecting");
+
+                    // Wait for the connection to be ready
+                    await transport.ready;
+
+                    logToConsole("✅ Connection established successfully!");
+                    updateStatus("Connected");
+
+                    // Enable/disable appropriate buttons
+                    connectButton.disabled = true;
+                    sendDataButton.disabled = false;
+                    sendMultiplexedDataButton.disabled = false; // Enable the new button
+                    cameraButton.disabled = false;
+                    // sendFrameDatagramButton.disabled = false; // No longer needed
+                    toggleAudioButton.disabled = false; // Enable audio button
+                    closeButton.disabled = false;
+
+                    // Set up connection closed handler
+                    transport.closed
+                        .then(() => {
+                            logToConsole("Connection closed gracefully.");
+                            resetConnectionState();
+                        })
+                        .catch((error) => {
+                            logToConsole(
+                                `Connection closed with error: ${error.message}`,
+                                true,
+                            );
+                            resetConnectionState();
+                        });
+
+                    // Start listening for incoming streams and datagrams
+                    listenForIncomingStreams(transport);
+                    listenForIncomingDatagrams(transport);
+                } catch (error) {
+                    logToConsole(
+                        `❌ Connection failed: ${error.message}`,
+                        true,
+                    );
+                    updateStatus("Disconnected");
+                    resetConnectionState();
+                }
+            }
+
+            // Send text data over WebTransport (Streams API - unchanged)
+            async function sendData() {
+                if (!transport) {
+                    logToConsole("❌ No active connection!", true);
+                    return;
+                }
+
+                try {
+                    const stream = await transport.createBidirectionalStream();
+                    const reader = stream.readable.getReader();
+                    const writer = stream.writable.getWriter();
+
+                    const text =
+                        dataInput.value.trim() || "Hello WebTransport!";
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(text);
+
+                    logToConsole(
+                        `Sending text data (Stream): "${text}" as bytes [${Array.from(data)}]`,
+                    );
+                    await writer.write(data);
+                    await writer.close(); // Close the writer side
+
+                    logToConsole("Waiting for echo response (Stream)...");
+                    let receivedChunks = [];
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) {
+                            logToConsole("Stream reader finished.");
+                            break;
+                        }
+                        receivedChunks.push(value);
+                    }
+
+                    const receivedCombined = new Uint8Array(
+                        receivedChunks.reduce(
+                            (acc, chunk) => acc.concat(Array.from(chunk)),
+                            [],
+                        ),
+                    );
+                    const decoder = new TextDecoder();
+                    const receivedText = decoder.decode(receivedCombined);
+                    logToConsole(
+                        `✅ Received (Stream): "${receivedText}" as bytes [${Array.from(receivedCombined)}]`,
+                    );
+                } catch (error) {
+                    logToConsole(
+                        `❌ Error sending/receiving stream data: ${error.message}`,
+                        true,
+                    );
+                }
+            }
+
+            // --- NEW/MODIFIED: Send data over multiple parallel streams AND datagrams ---
+            async function sendMultiplexedData() {
+                if (!transport) {
+                    logToConsole("❌ No active connection!", true);
+                    return;
+                }
+
+                try {
+                    const numStreams = 3; // Reduced number of streams for clarity
+                    logToConsole(
+                        `Starting ${numStreams} parallel streams and sending continuous datagrams...`,
+                    );
+
+                    const text =
+                        dataInput.value.trim() || "Hello WebTransport!";
+                    const encoder = new TextEncoder();
+                    const streamData = encoder.encode(text);
+
+                    const streamOperations = [];
+                    let datagramCounter = 1;
+
+                    // Start sending datagrams immediately
+                    const datagramWriter =
+                        transport.datagrams.writable.getWriter();
+
+                    let sendCount = 0;
+                    const maxSends = 3;
+
+                    datagramIntervalId = setInterval(async () => {
+                        const datagramMessage = `Datagram ${datagramCounter++}: ${new Date().toLocaleTimeString()}`;
+                        const datagramData = encoder.encode(datagramMessage);
+                        try {
+                            await datagramWriter.write(datagramData);
+                            logToConsole(`Sent Datagram: "${datagramMessage}"`);
+
+                            sendCount++;
+                            if (sendCount >= maxSends) {
+                                clearInterval(datagramIntervalId);
+                                datagramIntervalId = null;
+                                logToConsole(
+                                    `✅ Stopped sending datagrams after ${maxSends} attempts.`,
+                                );
+                            }
+                        } catch (error) {
+                            logToConsole(
+                                `❌ Error sending datagram: ${error.message}`,
+                                true,
+                            );
+                            clearInterval(datagramIntervalId);
+                            datagramIntervalId = null;
+                        }
+                    }, 500); // Send a datagram every 500ms
+
+                    // Prepare stream operations
+                    for (let i = 0; i < numStreams; i++) {
+                        streamOperations.push(
+                            (async (streamNum) => {
+                                const stream =
+                                    await transport.createBidirectionalStream();
+                                const reader = stream.readable.getReader();
+                                const writer = stream.writable.getWriter();
+
+                                logToConsole(
+                                    `Stream ${streamNum}: Sending "${text}" as bytes [${Array.from(streamData)}]`,
+                                );
+                                await writer.write(streamData);
+                                await writer.close();
+
+                                let receivedChunks = [];
+                                while (true) {
+                                    const { value, done } = await reader.read();
+                                    if (done) break;
+                                    receivedChunks.push(value);
+                                }
+                                const receivedCombined = new Uint8Array(
+                                    receivedChunks.reduce(
+                                        (acc, chunk) =>
+                                            acc.concat(Array.from(chunk)),
+                                        [],
+                                    ),
+                                );
+                                const decoder = new TextDecoder();
+                                const receivedText =
+                                    decoder.decode(receivedCombined);
+
+                                logToConsole(
+                                    `✅ Stream ${streamNum}: Received "${receivedText}" as bytes [${Array.from(receivedCombined)}]`,
+                                );
+                                return streamNum;
+                            })(i + 1),
+                        );
+                    }
+
+                    // Wait for all stream operations to complete
+                    const results = await Promise.all(streamOperations);
+                    logToConsole(
+                        `✅ All ${results.length} streams completed successfully!`,
+                    );
+
+                    // Optionally, stop datagrams after streams are done, or let them run indefinitely
+                    // For this demo, let's keep them running until explicit disconnect or error
+                    // If you wanted them to stop after streams:
+                    // clearInterval(datagramIntervalId);
+                    // datagramIntervalId = null;
+                } catch (error) {
+                    if (error.message.includes("session is closed")) {
+                        logToConsole(
+                            "🟡 Multiplexed operation stopped (session closed).",
+                        );
+                    } else {
+                        logToConsole(
+                            `❌ Error in multiplexed operation: ${error.message}`,
+                            true,
+                        );
+                    }
+                }
+            }
+
+            // --- Camera and Image Sending (REMOVED as direct button) ---
+            // The functionality for `sendFrameDatagram` is now implicitly covered by
+            // `sendMultiplexedData` if you were to integrate camera frames into that
+            // for "real-time" datagrams, but the explicit button is gone.
+            async function toggleCamera() {
+                if (cameraActive) {
+                    // Turn camera off
+                    if (videoStream) {
+                        videoStream.getTracks().forEach((track) => {
+                            track.stop();
+                        });
+                        videoStream = null;
+                    }
+
+                    cameraFeed.srcObject = null;
+                    cameraFeed.style.display = "none";
+                    videoContainer.style.display = "none";
+                    capturedFrame.style.display = "none";
+                    cameraButton.textContent = "Open Camera";
+                    // sendFrameDatagramButton.disabled = true; // No longer needed
+                    cameraActive = false;
+
+                    logToConsole("Camera stopped");
+                } else {
+                    // Turn camera on
+                    try {
+                        const [width, height] = cameraResolution.value
+                            .split("x")
+                            .map(Number);
+
+                        videoStream = await navigator.mediaDevices.getUserMedia(
+                            {
+                                video: {
+                                    width: { ideal: width },
+                                    height: { ideal: height },
+                                },
+                                audio: false,
+                            },
+                        );
+
+                        cameraFeed.srcObject = videoStream;
+                        cameraFeed.style.display = "block";
+                        videoContainer.style.display = "block";
+                        cameraButton.textContent = "Close Camera";
+                        // sendFrameDatagramButton.disabled = false; // No longer needed as direct button
+                        cameraActive = true;
+
+                        cameraFeed.onloadedmetadata = () => {
+                            frameCanvas.width = cameraFeed.videoWidth;
+                            frameCanvas.height = cameraFeed.videoHeight;
+                            logToConsole(
+                                `Camera activated with resolution: ${cameraFeed.videoWidth}x${cameraFeed.videoHeight}`,
+                            );
+                        };
+
+                        setTimeout(capturePreviewFrame, 500); // Capture a preview frame after a short delay
+                    } catch (error) {
+                        logToConsole(
+                            `❌ Error accessing camera: ${error.message}`,
+                            true,
+                        );
+                    }
+                }
+            }
+
+            function capturePreviewFrame() {
+                if (!cameraActive || !videoStream) return;
+
+                const context = frameCanvas.getContext("2d");
+                context.drawImage(
+                    cameraFeed,
+                    0,
+                    0,
+                    frameCanvas.width,
+                    frameCanvas.height,
+                );
+
+                const quality = parseFloat(jpegQuality.value);
+                capturedFrame.src = frameCanvas.toDataURL(
+                    "image/jpeg",
+                    quality,
+                );
+                capturedFrame.style.display = "block";
+            }
+
+            // --- Audio Recording and Sending (Datagrams API - conceptual) ---
+            async function toggleAudioRecording() {
+                if (!transport) {
+                    logToConsole(
+                        "❌ No active connection to send audio!",
+                        true,
+                    );
+                    return;
+                }
+                if (isRecordingAudio) {
+                    // Stop recording
+                    if (mediaRecorder) {
+                        mediaRecorder.stop();
+                    }
+                    toggleAudioButton.classList.remove("recording");
+                    toggleAudioButton.textContent =
+                        "Start Recording Audio (Datagrams)";
+                    logToConsole("Audio recording stopped.");
+                    isRecordingAudio = false;
+                } else {
+                    // Start recording
+                    try {
+                        const audioStream =
+                            await navigator.mediaDevices.getUserMedia({
+                                audio: true,
+                                video: false,
+                            });
+                        mediaRecorder = new MediaRecorder(audioStream, {
+                            mimeType: "audio/webm; codecs=opus", // Opus is good for real-time
+                        });
+
+                        audioChunks = [];
+                        mediaRecorder.ondataavailable = async (event) => {
+                            if (event.data.size > 0) {
+                                // For real-time, you'd want to send chunks as they arrive
+                                // For simplicity, we'll just log and assume small enough chunks for datagrams
+                                // In a real app, you might chunk this further or use Streams if reliability is needed
+                                const audioData = new Uint8Array(
+                                    await event.data.arrayBuffer(),
+                                );
+                                try {
+                                    await transport.datagrams.writable
+                                        .getWriter()
+                                        .write(audioData);
+                                    logToConsole(
+                                        `Sent audio datagram: ${audioData.length} bytes`,
+                                    );
+                                } catch (error) {
+                                    logToConsole(
+                                        `❌ Error sending audio datagram: ${error.message}`,
+                                        true,
+                                    );
+                                    if (
+                                        mediaRecorder &&
+                                        mediaRecorder.state === "recording"
+                                    ) {
+                                        mediaRecorder.stop();
+                                    }
+                                }
+                            }
+                        };
+
+                        mediaRecorder.onstop = () => {
+                            audioStream
+                                .getTracks()
+                                .forEach((track) => track.stop());
+                            logToConsole("MediaRecorder stopped.");
+                        };
+
+                        mediaRecorder.start(200); // Capture audio data every 200ms
+                        isRecordingAudio = true;
+                        toggleAudioButton.classList.add("recording");
+                        toggleAudioButton.textContent =
+                            "Stop Recording Audio (Datagrams)";
+                        logToConsole(
+                            "Audio recording started, sending datagrams every 200ms.",
+                        );
+                    } catch (error) {
+                        logToConsole(
+                            `❌ Error accessing microphone: ${error.message}`,
+                            true,
+                        );
+                        isRecordingAudio = false;
+                        toggleAudioButton.classList.remove("recording");
+                        toggleAudioButton.textContent =
+                            "Start Recording Audio (Datagrams)";
+                    }
+                }
+            }
+
+            // --- Incoming Data Handling ---
+            async function listenForIncomingStreams(transport) {
+                try {
+                    const reader =
+                        transport.incomingBidirectionalStreams.getReader();
+                    logToConsole("Listening for incoming streams...");
+                    while (true) {
+                        const { value: stream, done } = await reader.read();
+                        if (done) {
+                            logToConsole("No more incoming streams.");
+                            break;
+                        }
+                        logToConsole(
+                            `Incoming stream detected. Reading data...`,
+                        );
+                        (async () => {
+                            const streamReader = stream.readable.getReader();
+                            let receivedChunks = [];
+                            try {
+                                while (true) {
+                                    const { value, done } =
+                                        await streamReader.read();
+                                    if (done) break;
+                                    receivedChunks.push(value);
+                                }
+                                const receivedCombined = new Uint8Array(
+                                    receivedChunks.reduce(
+                                        (acc, chunk) =>
+                                            acc.concat(Array.from(chunk)),
+                                        [],
+                                    ),
+                                );
+                                const decoder = new TextDecoder();
+                                const receivedText =
+                                    decoder.decode(receivedCombined);
+                                logToConsole(
+                                    `✅ Received on incoming Stream: "${receivedText}"`,
+                                );
+                            } catch (error) {
+                                if (
+                                    error.message.includes("session is closed")
+                                ) {
+                                    logToConsole(
+                                        "🟡 Stream reader stopped (session closed).",
+                                    );
+                                } else {
+                                    logToConsole(
+                                        `❌ Error listening for incoming streams: ${error.message}`,
+                                        true,
+                                    );
+                                }
+                            }
+                        })();
+                    }
+                } catch (error) {
+                    logToConsole(
+                        `❌ Error listening for incoming streams: ${error.message}`,
+                        true,
+                    );
+                }
+            }
+
+            async function listenForIncomingDatagrams(transport) {
+                try {
+                    const reader = transport.datagrams.readable.getReader();
+                    logToConsole("Listening for incoming datagrams...");
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) {
+                            logToConsole("No more incoming datagrams.");
+                            break;
+                        }
+                        // Assume the incoming datagram is an echoed image or a text datagram
+                        try {
+                            const decoder = new TextDecoder();
+                            const textData = decoder.decode(value);
+                            if (textData.startsWith("Datagram")) {
+                                logToConsole(
+                                    `✅ Received Datagram: "${textData}"`,
+                                );
+                            } else {
+                                // Try to interpret as an image (base64 or binary data)
+                                const blob = new Blob([value], {
+                                    type: "image/jpeg",
+                                });
+                                const imgUrl = URL.createObjectURL(blob);
+                                const img = document.createElement("img");
+                                img.src = imgUrl;
+                                img.alt = `Received Frame ${new Date().toLocaleTimeString()}`;
+                                receivedImages.prepend(img); // Add to top
+                                logToConsole(
+                                    `✅ Received an image datagram (${value.length} bytes).`,
+                                );
+                                // Clean up old images if too many
+                                while (receivedImages.children.length > 5) {
+                                    receivedImages.lastChild.remove();
+                                }
+                            }
+                        } catch (parseError) {
+                            logToConsole(
+                                `❌ Error processing received datagram: ${parseError.message}. Data length: ${value.length}`,
+                                true,
+                            );
+                            logToConsole(
+                                `Received raw datagram bytes: [${Array.from(value)}]`,
+                            );
+                        }
+                    }
+                } catch (error) {
+                    if (error.message.includes("session is closed")) {
+                        logToConsole(
+                            "🟡 Datagram reader stopped (session closed).",
+                        );
+                    } else {
+                        logToConsole(
+                            `❌ Error listening for incoming datagrams: ${error.message}`,
+                            true,
+                        );
+                    }
+                }
+            }
+
+            // --- Event Listeners ---
+            connectButton.addEventListener("click", connect);
+            sendDataButton.addEventListener("click", sendData);
+            // Updated event listener for the new button
+            sendMultiplexedDataButton.addEventListener(
+                "click",
+                sendMultiplexedData,
+            );
+            cameraButton.addEventListener("click", toggleCamera);
+            // Removed sendFrameDatagramButton event listener
+            toggleAudioButton.addEventListener("click", toggleAudioRecording);
+            closeButton.addEventListener("click", () => {
+                if (transport) {
+                    logToConsole("Closing connection...");
+                    transport.close();
+                }
+            });
+            clearButton.addEventListener("click", () => {
+                consoleOutput.textContent = "Console cleared.\n";
+                receivedImages.innerHTML = ""; // Also clear received images
+            });
+        </script>
+    </body>
+</html>

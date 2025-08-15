@@ -1,0 +1,1183 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>WebTransport Demo - Streams & Datagrams</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                padding: 20px;
+                color: #333;
+            }
+
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                background: rgba(255, 255, 255, 0.95);
+                border-radius: 20px;
+                padding: 30px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(10px);
+            }
+
+            h1 {
+                text-align: center;
+                color: #4a5568;
+                margin-bottom: 10px;
+                font-size: 2.5em;
+                background: linear-gradient(45deg, #667eea, #764ba2);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+
+            .subtitle {
+                text-align: center;
+                color: #718096;
+                margin-bottom: 30px;
+                font-size: 1.1em;
+            }
+
+            .status-bar {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 20px;
+                background: #f7fafc;
+                border-radius: 12px;
+                margin-bottom: 25px;
+                border: 2px solid #e2e8f0;
+            }
+
+            .status {
+                font-weight: 600;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 0.9em;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .status.disconnected {
+                background: #fed7d7;
+                color: #c53030;
+            }
+
+            .status.connecting {
+                background: #fef5e7;
+                color: #d69e2e;
+            }
+
+            .status.connected {
+                background: #c6f6d5;
+                color: #38a169;
+            }
+
+            .connection-options {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 15px;
+                margin-bottom: 25px;
+            }
+
+            .option-group {
+                background: #f8fafc;
+                padding: 15px;
+                border-radius: 10px;
+                border: 1px solid #e2e8f0;
+            }
+
+            .option-group h3 {
+                color: #4a5568;
+                margin-bottom: 10px;
+                font-size: 1.1em;
+            }
+
+            .option-group label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: 500;
+                color: #2d3748;
+            }
+
+            .option-group input,
+            .option-group select {
+                width: 100%;
+                padding: 8px 12px;
+                border: 1px solid #cbd5e0;
+                border-radius: 6px;
+                font-size: 14px;
+                transition: border-color 0.2s;
+            }
+
+            .option-group input:focus,
+            .option-group select:focus {
+                outline: none;
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }
+
+            .demo-sections {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+                gap: 25px;
+                margin-bottom: 25px;
+            }
+
+            .demo-section {
+                background: #ffffff;
+                border-radius: 15px;
+                padding: 20px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+                border: 1px solid #e2e8f0;
+            }
+
+            .demo-section h3 {
+                color: #4a5568;
+                margin-bottom: 15px;
+                font-size: 1.3em;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .demo-section h3::before {
+                content: "🔗";
+                font-size: 1.2em;
+            }
+
+            .demo-section[data-type="bidirectional"] h3::before {
+                content: "🔄";
+            }
+
+            .demo-section[data-type="unidirectional"] h3::before {
+                content: "➡️";
+            }
+
+            .demo-section[data-type="datagrams"] h3::before {
+                content: "📡";
+            }
+
+            .input-group {
+                margin-bottom: 15px;
+            }
+
+            .input-group label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 500;
+                color: #4a5568;
+            }
+
+            .input-group input,
+            .input-group textarea {
+                width: 100%;
+                padding: 10px 12px;
+                border: 1px solid #cbd5e0;
+                border-radius: 8px;
+                font-size: 14px;
+                transition: all 0.2s;
+            }
+
+            .input-group textarea {
+                resize: vertical;
+                min-height: 80px;
+            }
+
+            .input-group input:focus,
+            .input-group textarea:focus {
+                outline: none;
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }
+
+            .btn {
+                padding: 12px 24px;
+                border: none;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin: 5px;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .btn::before {
+                content: "";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 0;
+                height: 0;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.3);
+                transition: all 0.3s;
+                transform: translate(-50%, -50%);
+            }
+
+            .btn:hover::before {
+                width: 300px;
+                height: 300px;
+            }
+
+            .btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            .btn-primary {
+                background: linear-gradient(45deg, #667eea, #764ba2);
+                color: white;
+            }
+
+            .btn-primary:hover:not(:disabled) {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 15px rgba(102, 126, 234, 0.3);
+            }
+
+            .btn-secondary {
+                background: linear-gradient(45deg, #48bb78, #38a169);
+                color: white;
+            }
+
+            .btn-secondary:hover:not(:disabled) {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 15px rgba(72, 187, 120, 0.3);
+            }
+
+            .btn-danger {
+                background: linear-gradient(45deg, #f56565, #e53e3e);
+                color: white;
+            }
+
+            .btn-danger:hover:not(:disabled) {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 15px rgba(245, 101, 101, 0.3);
+            }
+
+            .btn-warning {
+                background: linear-gradient(45deg, #ed8936, #dd6b20);
+                color: white;
+            }
+
+            .console {
+                background: #1a202c;
+                color: #e2e8f0;
+                padding: 20px;
+                border-radius: 12px;
+                font-family: "Consolas", "Monaco", monospace;
+                font-size: 13px;
+                line-height: 1.5;
+                max-height: 300px;
+                overflow-y: auto;
+                white-space: pre-wrap;
+                border: 1px solid #2d3748;
+                margin-top: 20px;
+            }
+
+            .console::-webkit-scrollbar {
+                width: 8px;
+            }
+
+            .console::-webkit-scrollbar-track {
+                background: #2d3748;
+            }
+
+            .console::-webkit-scrollbar-thumb {
+                background: #4a5568;
+                border-radius: 4px;
+            }
+
+            .info-box {
+                background: #ebf8ff;
+                border-left: 4px solid #3182ce;
+                padding: 15px;
+                margin-bottom: 20px;
+                border-radius: 0 8px 8px 0;
+            }
+
+            .info-box h4 {
+                color: #2c5282;
+                margin-bottom: 8px;
+            }
+
+            .info-box p {
+                color: #2d3748;
+                margin-bottom: 5px;
+            }
+
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 10px;
+                margin-top: 15px;
+            }
+
+            .stat-item {
+                text-align: center;
+                padding: 10px;
+                background: #f7fafc;
+                border-radius: 8px;
+                border: 1px solid #e2e8f0;
+            }
+
+            .stat-value {
+                font-size: 1.5em;
+                font-weight: bold;
+                color: #4a5568;
+            }
+
+            .stat-label {
+                font-size: 0.8em;
+                color: #718096;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            @media (max-width: 768px) {
+                .container {
+                    padding: 20px;
+                }
+
+                .demo-sections {
+                    grid-template-columns: 1fr;
+                }
+
+                .connection-options {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>WebTransport Demo</h1>
+            <p class="subtitle">
+                Explore Streams (Bidirectional & Unidirectional) and Datagrams
+                with Connection Options
+            </p>
+
+            <div class="info-box">
+                <h4>About This Demo</h4>
+                <p>
+                    • <strong>Bidirectional Streams:</strong> Reliable, ordered
+                    communication in both directions
+                </p>
+                <p>
+                    • <strong>Unidirectional Streams:</strong> Reliable, ordered
+                    communication in one direction
+                </p>
+                <p>
+                    • <strong>Datagrams:</strong> Unreliable, unordered but
+                    low-latency communication
+                </p>
+                <p>
+                    • <strong>Connection Options:</strong> Configure congestion
+                    control and other transport settings
+                </p>
+            </div>
+
+            <div class="status-bar">
+                <div id="connectionStatus" class="status disconnected">
+                    Disconnected
+                </div>
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="streamCount">0</div>
+                        <div class="stat-label">Streams</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="datagramCount">0</div>
+                        <div class="stat-label">Datagrams</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="bytesCount">0</div>
+                        <div class="stat-label">Bytes</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="connection-options">
+                <div class="option-group">
+                    <h3>Server Settings</h3>
+                    <label for="serverUrl">WebTransport Server URL:</label>
+                    <input
+                        type="text"
+                        id="serverUrl"
+                        value="https://quic-aioquic.com/wt"
+                        placeholder="wss://example.com/wt"
+                    />
+                </div>
+                <div class="option-group">
+                    <h3>Connection Options</h3>
+                    <label for="congestionControl">Congestion Control:</label>
+                    <select id="congestionControl">
+                        <option value="throughput">Throughput</option>
+                        <option value="low-latency">Low Latency</option>
+                    </select>
+                    <label for="allowPooling" style="margin-top: 10px">
+                        <input type="checkbox" id="allowPooling" checked />
+                        Allow Connection Pooling
+                    </label>
+                </div>
+                <div class="option-group">
+                    <h3>Connection Control</h3>
+                    <button id="connectBtn" class="btn btn-primary">
+                        Connect
+                    </button>
+                    <button id="disconnectBtn" class="btn btn-danger" disabled>
+                        Disconnect
+                    </button>
+                    <button id="clearBtn" class="btn btn-warning">
+                        Clear Console
+                    </button>
+                </div>
+            </div>
+
+            <div class="demo-sections">
+                <div class="demo-section" data-type="bidirectional">
+                    <h3>Bidirectional Streams</h3>
+                    <div class="input-group">
+                        <label for="biStreamData">Message to send:</label>
+                        <textarea
+                            id="biStreamData"
+                            placeholder="Enter your message here..."
+                        >
+Hello from bidirectional stream!</textarea
+                        >
+                    </div>
+                    <button
+                        id="sendBiStreamBtn"
+                        class="btn btn-secondary"
+                        disabled
+                    >
+                        Send Bidirectional
+                    </button>
+                    <button
+                        id="createMultipleBtn"
+                        class="btn btn-secondary"
+                        disabled
+                    >
+                        Send 5 Parallel Streams
+                    </button>
+                </div>
+
+                <div class="demo-section" data-type="unidirectional">
+                    <h3>Unidirectional Streams</h3>
+                    <div class="input-group">
+                        <label for="uniStreamData">Message to send:</label>
+                        <textarea
+                            id="uniStreamData"
+                            placeholder="Enter your message here..."
+                        >
+Hello from unidirectional stream!</textarea
+                        >
+                    </div>
+                    <button
+                        id="sendUniStreamBtn"
+                        class="btn btn-secondary"
+                        disabled
+                    >
+                        Send Unidirectional
+                    </button>
+                    <button
+                        id="sendUniMultipleBtn"
+                        class="btn btn-secondary"
+                        disabled
+                    >
+                        Send 3 Uni Streams
+                    </button>
+                </div>
+
+                <div class="demo-section" data-type="datagrams">
+                    <h3>Datagrams</h3>
+                    <div class="input-group">
+                        <label for="datagramData">Message to send:</label>
+                        <textarea
+                            id="datagramData"
+                            placeholder="Enter your message here..."
+                        >
+Hello from datagram!</textarea
+                        >
+                    </div>
+                    <button
+                        id="sendDatagramBtn"
+                        class="btn btn-secondary"
+                        disabled
+                    >
+                        Send Datagram
+                    </button>
+                    <button
+                        id="sendDatagramBurstBtn"
+                        class="btn btn-secondary"
+                        disabled
+                    >
+                        Send Datagram Burst
+                    </button>
+                </div>
+            </div>
+
+            <div class="console" id="console">
+                WebTransport Demo initialized. Configure settings and click
+                Connect to start.
+            </div>
+        </div>
+
+        <script>
+            let transport = null;
+            let streamCount = 0;
+            let datagramCount = 0;
+            let bytesCount = 0;
+
+            // DOM elements
+            const elements = {
+                console: document.getElementById("console"),
+                status: document.getElementById("connectionStatus"),
+                serverUrl: document.getElementById("serverUrl"),
+                congestionControl: document.getElementById("congestionControl"),
+                allowPooling: document.getElementById("allowPooling"),
+                connectBtn: document.getElementById("connectBtn"),
+                disconnectBtn: document.getElementById("disconnectBtn"),
+                clearBtn: document.getElementById("clearBtn"),
+                sendBiStreamBtn: document.getElementById("sendBiStreamBtn"),
+                createMultipleBtn: document.getElementById("createMultipleBtn"),
+                sendUniStreamBtn: document.getElementById("sendUniStreamBtn"),
+                sendUniMultipleBtn:
+                    document.getElementById("sendUniMultipleBtn"),
+                sendDatagramBtn: document.getElementById("sendDatagramBtn"),
+                sendDatagramBurstBtn: document.getElementById(
+                    "sendDatagramBurstBtn",
+                ),
+                biStreamData: document.getElementById("biStreamData"),
+                uniStreamData: document.getElementById("uniStreamData"),
+                datagramData: document.getElementById("datagramData"),
+                streamCount: document.getElementById("streamCount"),
+                datagramCount: document.getElementById("datagramCount"),
+                bytesCount: document.getElementById("bytesCount"),
+            };
+
+            // Utility functions
+            function log(message, type = "info") {
+                const timestamp = new Date().toLocaleTimeString();
+                const prefix =
+                    type === "error" ? "❌" : type === "success" ? "✅" : "ℹ️";
+                const formattedMessage = `[${timestamp}] ${prefix} ${message}`;
+
+                elements.console.textContent += formattedMessage + "\n";
+                elements.console.scrollTop = elements.console.scrollHeight;
+
+                console.log(message);
+            }
+
+            function updateStatus(status) {
+                elements.status.textContent = status;
+                elements.status.className = `status ${status.toLowerCase()}`;
+            }
+
+            function updateStats() {
+                elements.streamCount.textContent = streamCount;
+                elements.datagramCount.textContent = datagramCount;
+                elements.bytesCount.textContent = bytesCount;
+            }
+
+            function updateButtonStates(connected) {
+                elements.connectBtn.disabled = connected;
+                elements.disconnectBtn.disabled = !connected;
+                elements.sendBiStreamBtn.disabled = !connected;
+                elements.createMultipleBtn.disabled = !connected;
+                elements.sendUniStreamBtn.disabled = !connected;
+                elements.sendUniMultipleBtn.disabled = !connected;
+                elements.sendDatagramBtn.disabled = !connected;
+                elements.sendDatagramBurstBtn.disabled = !connected;
+            }
+
+            // Connection management
+            async function connect() {
+                try {
+                    const url = elements.serverUrl.value.trim();
+                    const options = {
+                        congestionControl: elements.congestionControl.value,
+                        allowPooling: elements.allowPooling.checked,
+                    };
+
+                    log(
+                        `Connecting to ${url} with options: ${JSON.stringify(options)}`,
+                    );
+                    updateStatus("Connecting");
+
+                    transport = new WebTransport(url, options);
+
+                    await transport.ready;
+
+                    log("Connection established successfully!", "success");
+                    updateStatus("Connected");
+                    updateButtonStates(true);
+
+                    // FIXED: Setup incoming listeners properly
+                    setupIncomingListeners();
+
+                    // Handle connection closure
+                    transport.closed
+                        .then(() => {
+                            log("Connection closed gracefully");
+                            resetConnection();
+                        })
+                        .catch((error) => {
+                            log(
+                                `Connection closed with error: ${error.message}`,
+                                "error",
+                            );
+                            resetConnection();
+                        });
+                } catch (error) {
+                    log(`Connection failed: ${error.message}`, "error");
+                    resetConnection();
+                }
+            }
+
+            function disconnect() {
+                if (transport) {
+                    log("Disconnecting...");
+                    transport.close();
+                }
+            }
+
+            function resetConnection() {
+                transport = null;
+                updateStatus("Disconnected");
+                updateButtonStates(false);
+            }
+
+            // FIXED: Properly handle incoming unidirectional streams
+            async function setupIncomingListeners() {
+                // Listen for incoming bidirectional streams
+                handleIncomingBidirectionalStreams();
+
+                // FIXED: Listen for incoming unidirectional streams
+                handleIncomingUnidirectionalStreams();
+
+                // Listen for incoming datagrams
+                handleIncomingDatagrams();
+            }
+
+            // FIXED: Separate function for handling incoming bidirectional streams
+            async function handleIncomingBidirectionalStreams() {
+                try {
+                    const reader =
+                        transport.incomingBidirectionalStreams.getReader();
+                    log(
+                        "Started listening for incoming bidirectional streams",
+                        "info",
+                    );
+
+                    while (true) {
+                        const { value: stream, done } = await reader.read();
+                        if (done) {
+                            log("Bidirectional stream reader closed");
+                            break;
+                        }
+
+                        log(
+                            "Incoming bidirectional stream detected",
+                            "success",
+                        );
+                        handleBidirectionalStream(stream);
+                    }
+                } catch (error) {
+                    log(
+                        `Error reading incoming bidirectional streams: ${error.message}`,
+                        "error",
+                    );
+                }
+            }
+
+            // FIXED: Separate function for handling incoming unidirectional streams
+            async function handleIncomingUnidirectionalStreams() {
+                try {
+                    const reader =
+                        transport.incomingUnidirectionalStreams.getReader();
+                    log(
+                        "Started listening for incoming unidirectional streams",
+                        "info",
+                    );
+
+                    while (true) {
+                        const { value: stream, done } = await reader.read();
+                        if (done) {
+                            log("Unidirectional stream reader closed");
+                            break;
+                        }
+
+                        log(
+                            "Incoming unidirectional stream detected",
+                            "success",
+                        );
+                        handleUnidirectionalStream(stream);
+                    }
+                } catch (error) {
+                    log(
+                        `Error reading incoming unidirectional streams: ${error.message}`,
+                        "error",
+                    );
+                }
+            }
+
+            // FIXED: Separate function for handling incoming datagrams
+            async function handleIncomingDatagrams() {
+                try {
+                    const reader = transport.datagrams.readable.getReader();
+                    log("Started listening for incoming datagrams", "info");
+
+                    while (true) {
+                        const { value: data, done } = await reader.read();
+                        if (done) {
+                            log("Datagram reader closed");
+                            break;
+                        }
+
+                        const decoder = new TextDecoder();
+                        const message = decoder.decode(data);
+                        datagramCount++;
+                        bytesCount += data.length;
+                        updateStats();
+
+                        log(
+                            `Received datagram: "${message}" (${data.length} bytes)`,
+                            "success",
+                        );
+                    }
+                } catch (error) {
+                    log(`Error reading datagrams: ${error.message}`, "error");
+                }
+            }
+
+            // FIXED: Handle bidirectional streams properly
+            async function handleBidirectionalStream(stream) {
+                try {
+                    const reader = stream.readable.getReader();
+                    const chunks = [];
+
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                    }
+
+                    if (chunks.length > 0) {
+                        const combinedData = new Uint8Array(
+                            chunks.reduce(
+                                (acc, chunk) => acc + chunk.length,
+                                0,
+                            ),
+                        );
+                        let offset = 0;
+                        for (const chunk of chunks) {
+                            combinedData.set(chunk, offset);
+                            offset += chunk.length;
+                        }
+
+                        const decoder = new TextDecoder();
+                        const message = decoder.decode(combinedData);
+
+                        streamCount++;
+                        bytesCount += combinedData.length;
+                        updateStats();
+
+                        log(
+                            `Received bidirectional stream: "${message}" (${combinedData.length} bytes)`,
+                            "success",
+                        );
+                    }
+                } catch (error) {
+                    log(
+                        `Error handling incoming bidirectional stream: ${error.message}`,
+                        "error",
+                    );
+                }
+            }
+
+            // FIXED: Handle unidirectional streams properly
+            async function handleUnidirectionalStream(stream) {
+                try {
+                    const reader = stream.getReader();
+                    const chunks = [];
+
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                    }
+
+                    if (chunks.length > 0) {
+                        const combinedData = new Uint8Array(
+                            chunks.reduce(
+                                (acc, chunk) => acc + chunk.length,
+                                0,
+                            ),
+                        );
+                        let offset = 0;
+                        for (const chunk of chunks) {
+                            combinedData.set(chunk, offset);
+                            offset += chunk.length;
+                        }
+
+                        const decoder = new TextDecoder();
+                        const message = decoder.decode(combinedData);
+
+                        streamCount++;
+                        bytesCount += combinedData.length;
+                        updateStats();
+
+                        log(
+                            `Received unidirectional stream: "${message}" (${combinedData.length} bytes)`,
+                            "success",
+                        );
+                    }
+                } catch (error) {
+                    log(
+                        `Error handling incoming unidirectional stream: ${error.message}`,
+                        "error",
+                    );
+                }
+            }
+
+            // Sending functions
+            async function sendBidirectionalStream() {
+                if (!transport) return;
+
+                try {
+                    const message =
+                        elements.biStreamData.value ||
+                        "Hello from bidirectional stream!";
+                    const data = new TextEncoder().encode(message);
+
+                    const stream = await transport.createBidirectionalStream();
+                    const writer = stream.writable.getWriter();
+
+                    log(`Sending bidirectional stream: "${message}"`);
+                    await writer.write(data);
+                    await writer.close();
+
+                    // Read the response
+                    const reader = stream.readable.getReader();
+                    const chunks = [];
+
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                    }
+
+                    if (chunks.length > 0) {
+                        const combinedData = new Uint8Array(
+                            chunks.reduce(
+                                (acc, chunk) => acc + chunk.length,
+                                0,
+                            ),
+                        );
+                        let offset = 0;
+                        for (const chunk of chunks) {
+                            combinedData.set(chunk, offset);
+                            offset += chunk.length;
+                        }
+
+                        const decoder = new TextDecoder();
+                        const response = decoder.decode(combinedData);
+
+                        log(
+                            `Bidirectional stream response: "${response}"`,
+                            "success",
+                        );
+
+                        bytesCount += combinedData.length;
+                    }
+
+                    streamCount++;
+                    bytesCount += data.length;
+                    updateStats();
+                } catch (error) {
+                    log(
+                        `Error sending bidirectional stream: ${error.message}`,
+                        "error",
+                    );
+                }
+            }
+
+            // FIXED: Unidirectional stream sending with better error handling
+            async function sendUnidirectionalStream() {
+                if (!transport) {
+                    log("Transport not available", "error");
+                    return;
+                }
+
+                try {
+                    const message =
+                        elements.uniStreamData.value ||
+                        "Hello from unidirectional stream!";
+                    const data = new TextEncoder().encode(message);
+
+                    log(`Creating unidirectional stream...`);
+                    const stream = await transport.createUnidirectionalStream();
+
+                    if (!stream) {
+                        throw new Error(
+                            "Failed to create unidirectional stream",
+                        );
+                    }
+
+                    log(`Getting writer for unidirectional stream...`);
+                    const writer = stream.getWriter();
+
+                    log(`Sending unidirectional stream: "${message}"`);
+                    await writer.write(data);
+
+                    log(`Closing unidirectional stream...`);
+                    await writer.close();
+
+                    streamCount++;
+                    bytesCount += data.length;
+                    updateStats();
+
+                    log("Unidirectional stream sent successfully", "success");
+                } catch (error) {
+                    log(
+                        `Error sending unidirectional stream: ${error.message}`,
+                        "error",
+                    );
+                    console.error("Full error:", error);
+                }
+            }
+
+            async function sendDatagram() {
+                if (!transport) return;
+
+                try {
+                    const message =
+                        elements.datagramData.value || "Hello from datagram!";
+                    const data = new TextEncoder().encode(message);
+
+                    const writer = transport.datagrams.writable.getWriter();
+
+                    log(`Sending datagram: "${message}"`);
+                    await writer.write(data);
+                    writer.releaseLock();
+
+                    datagramCount++;
+                    bytesCount += data.length;
+                    updateStats();
+
+                    log("Datagram sent successfully", "success");
+                } catch (error) {
+                    log(`Error sending datagram: ${error.message}`, "error");
+                }
+            }
+
+            async function sendMultipleStreams() {
+                if (!transport) return;
+
+                log("Sending 5 parallel bidirectional streams...");
+                const promises = [];
+
+                for (let i = 1; i <= 5; i++) {
+                    promises.push(
+                        (async () => {
+                            try {
+                                const message = `Parallel stream #${i}: ${new Date().toLocaleTimeString()}`;
+                                const data = new TextEncoder().encode(message);
+
+                                const stream =
+                                    await transport.createBidirectionalStream();
+                                const writer = stream.writable.getWriter();
+
+                                await writer.write(data);
+                                await writer.close();
+
+                                streamCount++;
+                                bytesCount += data.length;
+
+                                log(
+                                    `Parallel stream #${i} sent successfully`,
+                                    "success",
+                                );
+                                return i;
+                            } catch (error) {
+                                log(
+                                    `Error in parallel stream #${i}: ${error.message}`,
+                                    "error",
+                                );
+                                return null;
+                            }
+                        })(),
+                    );
+                }
+
+                const results = await Promise.allSettled(promises);
+                const successful = results.filter(
+                    (r) => r.status === "fulfilled" && r.value !== null,
+                ).length;
+
+                updateStats();
+                log(
+                    `Completed parallel streams: ${successful}/5 successful`,
+                    "success",
+                );
+            }
+
+            async function sendMultipleUniStreams() {
+                if (!transport) {
+                    log("Transport not available", "error");
+                    return;
+                }
+
+                log("Sending 3 parallel unidirectional streams...");
+                const promises = [];
+
+                for (let i = 1; i <= 3; i++) {
+                    promises.push(
+                        (async () => {
+                            try {
+                                const message = `Uni stream #${i}: ${new Date().toLocaleTimeString()}`;
+                                const data = new TextEncoder().encode(message);
+
+                                // Add more detailed logging
+                                log(`Creating unidirectional stream #${i}...`);
+                                const stream =
+                                    await transport.createUnidirectionalStream();
+
+                                if (!stream) {
+                                    throw new Error("Failed to create stream");
+                                }
+
+                                log(`Stream #${i} created, getting writer...`);
+                                const writer = stream.getWriter();
+
+                                log(`Writing data to stream #${i}...`);
+                                await writer.write(data);
+
+                                log(`Closing stream #${i}...`);
+                                await writer.close();
+
+                                streamCount++;
+                                bytesCount += data.length;
+                                log(
+                                    `Uni stream #${i} sent successfully`,
+                                    "success",
+                                );
+                                return i;
+                            } catch (error) {
+                                log(
+                                    `Error in uni stream #${i}: ${error.message}`,
+                                    "error",
+                                );
+                                console.error(
+                                    `Full error for stream #${i}:`,
+                                    error,
+                                );
+                                return null;
+                            }
+                        })(),
+                    );
+                }
+
+                const results = await Promise.allSettled(promises);
+                const successful = results.filter(
+                    (r) => r.status === "fulfilled" && r.value !== null,
+                ).length;
+
+                updateStats();
+                log(
+                    `Completed uni streams: ${successful}/3 successful`,
+                    "success",
+                );
+            }
+
+            async function sendDatagramBurst() {
+                if (!transport) return;
+
+                log("Sending datagram burst (10 datagrams)...");
+
+                try {
+                    const writer = transport.datagrams.writable.getWriter();
+
+                    for (let i = 1; i <= 10; i++) {
+                        const message = `Burst datagram #${i}: ${new Date().toLocaleTimeString()}`;
+                        const data = new TextEncoder().encode(message);
+
+                        await writer.write(data);
+                        datagramCount++;
+                        bytesCount += data.length;
+
+                        // Small delay to prevent overwhelming
+                        await new Promise((resolve) => setTimeout(resolve, 50));
+                    }
+
+                    writer.releaseLock();
+                    updateStats();
+                    log("Datagram burst completed successfully", "success");
+                } catch (error) {
+                    log(
+                        `Error sending datagram burst: ${error.message}`,
+                        "error",
+                    );
+                }
+            }
+
+            function clearConsole() {
+                elements.console.textContent = "Console cleared.\n";
+                streamCount = 0;
+                datagramCount = 0;
+                bytesCount = 0;
+                updateStats();
+            }
+
+            // Event listeners
+            elements.connectBtn.addEventListener("click", connect);
+            elements.disconnectBtn.addEventListener("click", disconnect);
+            elements.clearBtn.addEventListener("click", clearConsole);
+            elements.sendBiStreamBtn.addEventListener(
+                "click",
+                sendBidirectionalStream,
+            );
+            elements.createMultipleBtn.addEventListener(
+                "click",
+                sendMultipleStreams,
+            );
+            elements.sendUniStreamBtn.addEventListener(
+                "click",
+                sendUnidirectionalStream,
+            );
+            elements.sendUniMultipleBtn.addEventListener(
+                "click",
+                sendMultipleUniStreams,
+            );
+            elements.sendDatagramBtn.addEventListener("click", sendDatagram);
+            elements.sendDatagramBurstBtn.addEventListener(
+                "click",
+                sendDatagramBurst,
+            );
+
+            // Check WebTransport support
+            if (!("WebTransport" in window)) {
+                log("WebTransport is not supported in this browser", "error");
+                elements.connectBtn.disabled = true;
+            }
+
+            log(
+                "WebTransport demo ready! Configure your settings and click Connect.",
+            );
+        </script>
+    </body>
+</html>

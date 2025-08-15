@@ -1,0 +1,62 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emissary-ingress
+  namespace: emissary
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 8443
+      protocol: TCP
+    - name: http3
+      port: 443
+      targetPort: 8443
+      protocol: UDP
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Listener
+metadata:
+  name: emissary-ingress-https-listener
+  namespace: emissary
+spec:
+  port: 8443
+  protocol: HTTPS
+  securityModel: XFP
+  hostBinding:
+    namespace:
+      from: ALL
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Listener
+metadata:
+  name: emissary-ingress-https-listener-udp
+  namespace: emissary
+spec:
+  port: 8443
+  protocolStack:
+    - TLS
+    - HTTP
+    - UDP
+  securityModel: XFP
+  hostBinding:
+    namespace:
+      from: ALL
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Host
+metadata:
+  name: my-domain-host
+  namespace: emissary
+spec:
+  hostname: public.my-services.com
+  tls:
+    secret: public-key
+    min_tls_version: v1.3
+    alpn_protocols: h2,http/1.1

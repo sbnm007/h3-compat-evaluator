@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: angie-config
+data:
+  angie.conf: |
+    worker_processes auto;
+
+    events {}
+
+    http {
+      log_format detailed '$remote_addr - $remote_user [$time_local] '
+                          '"$request" $status $body_bytes_sent '
+                          '"$http_referer" "$http_user_agent" '
+                          'protocol=$server_protocol http3=$http3';
+
+      access_log /dev/stdout detailed;
+
+      server {
+        listen 443 ssl;
+        listen 443 quic reuseport;
+
+        ssl_certificate     /certs/tls.crt;
+        ssl_certificate_key /certs/tls.key;
+        # QUIC/HTTP/3 advertisement
+        #add_header Alt-Svc 'h3=":443"';
+        add_header Alt-Svc 'h3=":443"; ma=86400; persist=1';
+        ssl_protocols TLSv1.3;  # Add TLS versions
+        ssl_ciphers HIGH:!aNULL:!MD5;   # Add ciphers
+        ssl_prefer_server_ciphers on;   # Prefer server ciphers
+        http2 on;
+
+        location / {
+          return 200 "Hello from Angie via HTTP/3!\n";
+        }
+
+        location /service {
+          # proxy_pass https://quic-aioquic.com;
+          proxy_pass https://quic-service.default.svc.cluster.local;
+        }
+
+        location /pod {
+          # proxy_pass https://quic-aioquic.com;
+          proxy_http_version 3; # IMPORTANT: Tell Angie to use HTTP/3 for the upstream connection
+          proxy_pass https://quic-service.default.svc.cluster.local;
+        }
+
+        location /test-h3 {
+          add_header X-Test-Protocol $server_protocol;
+          add_header X-Test-Http3 $http3;
+          return 200 "This is /test-h3 (HTTP version: $server_protocol, http3: $http3)\n";
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: angie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: angie
+  template:
+    metadata:
+      labels:
+        app: angie
+    spec:
+      containers:
+        - name: angie
+          image: docker.angie.software/angie:latest
+          ports:
+            - containerPort: 443
+              protocol: TCP
+            - containerPort: 443
+              protocol: UDP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/angie/angie.conf
+              subPath: angie.conf
+            - name: certs
+              mountPath: /certs
+      volumes:
+        - name: config
+          configMap:
+            name: angie-config
+        - name: certs
+          secret:
+            secretName: angie-cert
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: angie-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: angie
+  ports:
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+    - name: quic
+      port: 443
+      targetPort: 443
+      protocol: UDP

@@ -1,0 +1,156 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: haproxy-config
+data:
+  haproxy.cfg: |
+    global
+    log /dev/log    local0 notice
+    maxconn 20000
+    daemon
+    user haproxy
+    group haproxy
+    ssl-default-bind-ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
+    ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
+    ssl-default-server-ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
+    ssl-default-server-options ssl-min-ver TLSv1.2 no-tls-tickets
+
+    defaults
+        mode http
+        log global
+        timeout connect 5000ms
+        timeout client 50000ms
+        timeout server 50000ms
+        retries 3
+        option httplog
+        option dontlognull
+        option http-keep-alive
+        option forwardfor
+
+    # Frontend for HTTP, HTTPS/HTTP2 (TCP), and HTTP/3 (UDP) traffic
+    frontend mysite
+      bind *:80 # HTTP listener
+      # Point 'crt' to the combined PEM file at the new default path
+      bind *:443 ssl crt /usr/local/etc/haproxy/ssl/ha-proxy.pem alpn h2,http/1.1
+      bind quic4@:443 ssl crt /usr/local/etc/haproxy/ssl/ha-proxy.pem alpn h3
+
+      # Redirects HTTP traffic to HTTPS
+      http-request redirect scheme https unless { ssl_fc }
+
+      # 'Alt-Svc' header invites clients to switch to the QUIC protocol
+      http-response set-header alt-svc "h3=\":443\";ma=900;"
+
+      # Hostname matching for haproxy-example.com
+      acl host_haproxy_example_com hdr(Host) -i haproxy-example.com
+      use_backend my_httpbin_backend if host_haproxy_example_com
+      default_backend my_httpbin_backend
+
+    backend my_httpbin_backend
+        mode http
+        balance roundrobin
+        server httpbin httpbin.default.svc.cluster.local:80 check
+
+    # (Original 'my_quic_backend' is commented out as per your input,
+    # if you want to use it again, uncomment it and adjust its path similar to above)
+    # default_backend my_quic_backend
+    # backend my_quic_backend
+    #   mode http
+    #   balance roundrobin
+    #   server quic-app quic-service.default.svc.cluster.local:443 ssl verify none check
+
+---
+# 1. HAProxy Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: haproxy-http3
+  namespace: default
+  labels:
+    app: haproxy-http3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: haproxy-http3
+  template:
+    metadata:
+      labels:
+        app: haproxy-http3
+    spec:
+      containers:
+        - name: haproxy
+          image: haproxy:lts-bookworm # Using the specified image
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 80
+              name: http-tcp
+              protocol: TCP
+            - containerPort: 443
+              name: https-tcp
+              protocol: TCP
+            - containerPort: 443
+              name: http3-udp
+              protocol: UDP
+
+          volumeMounts:
+            # Mount the combined certificate to the new default SSL path
+            - name: ssl-cert-combined
+              mountPath: /usr/local/etc/haproxy/ssl # Adjusted mountPath
+              readOnly: true
+            # Mount the haproxy.cfg to the new default config path
+            - name: haproxy-config-volume
+              mountPath: /usr/local/etc/haproxy/haproxy.cfg # Adjusted mountPath
+              subPath: haproxy.cfg
+              readOnly: true
+
+          livenessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+      volumes:
+        - name: ssl-cert-combined
+          secret:
+            secretName: haproxy-combined-tls
+            items:
+              - key: ha-proxy.pem
+                path: ha-proxy.pem
+
+        - name: haproxy-config-volume
+          configMap:
+            name: haproxy-config
+
+---
+# 2. HAProxy Service (LoadBalancer)
+# This Service exposes both TCP 80, TCP 443, and UDP 443
+apiVersion: v1
+kind: Service
+metadata:
+  name: haproxy-lb
+  namespace: default
+  labels:
+    app: haproxy-http3
+spec:
+  type: LoadBalancer
+  selector:
+    app: haproxy-http3
+  ports:
+    - name: http-tcp # New port for HTTP
+      protocol: TCP
+      port: 80
+      targetPort: http-tcp
+    - name: https-tcp
+      protocol: TCP
+      port: 443
+      targetPort: https-tcp
+    - name: http3-udp
+      protocol: UDP
+      port: 443
+      targetPort: http3-udp

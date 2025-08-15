@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: quic-server
+  labels:
+    app: quic-server
+spec:
+  containers:
+    - name: server
+      image: sbnm007/quic-demo:1.0.0
+      command: ["python"]
+      args:
+        - "examples/http3_server.py"
+        - "--certificate=/certs/tls.crt"
+        - "--private-key=/certs/tls.key"
+        - "--host=::"
+      ports:
+        - containerPort: 4433
+          protocol: UDP
+      volumeMounts:
+        - name: certs
+          mountPath: /certs
+  volumes:
+    - name: certs
+      secret:
+        secretName: quic-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quic-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: quic-server
+  ports:
+    - protocol: UDP
+      port: 443
+      targetPort: 4433

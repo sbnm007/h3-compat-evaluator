@@ -1,0 +1,67 @@
+# Certificates and private keys
+*.key
+*.crt
+*.pem
+*.p12
+*.csr
+
+# Except for example/template certificates
+!certificates/*/README.md
+
+# Compiled binaries
+*.o
+*.so
+*.a
+*.dylib
+*.dll
+*.exe
+
+# Build directories
+build/
+dist/
+*.egg-info/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+
+# Logs
+*.log
+logs/
+
+# Network captures (large files)
+*.pcap
+*.pcapng
+
+# Kubernetes secrets
+secrets/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Config files with sensitive data
+config.yaml
+secret.yaml
+
+# Tools with embedded git repositories
+tools/nghttp3/
+tools/ngtcp2/
+tools/openssl/
